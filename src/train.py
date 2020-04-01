@@ -7,12 +7,12 @@ import sys
 import json
 #from RNN import LSTMTagger
 #from RNN import HIDDEN_DIM, EMBEDDING_DIM
-#from DoubleLstm import LSTMTagger
-#from DoubleLstm import EMBEDDING_DIM, HIDDEN_DIM1, HIDDEN_DIM2
+from seq2tag.DoubleLSTM import LSTMTagger
+from seq2tag.DoubleLSTM import EMBEDDING_DIM, HIDDEN_DIM1, HIDDEN_DIM2
 #from Dropout import LSTMTagger
 #from Dropout import EMBEDDING_DIM, HIDDEN_DIM1, HIDDEN_DIM2
-from seq2tag.BidirectionLSTM import LSTMTagger
-from seq2tag.BidirectionLSTM import HIDDEN_DIM, EMBEDDING_DIM
+#from seq2tag.BidirectionLSTM import LSTMTagger
+#from seq2tag.BidirectionLSTM import HIDDEN_DIM, EMBEDDING_DIM
 import matplotlib.pyplot as plt
 from dataset import SeqTaggingDataset
 import torch.utils.data as Data
@@ -71,7 +71,12 @@ if __name__ == '__main__':
     if len(sys.argv) != 4:
         print('usage: python3 train.py train.pkl embedding.pkl loadModel.pt')
         exit(0)
-    with open(sys.argv[1],"rb") as FileTraining:
+    
+    trainingName = sys.argv[1]
+    embeddingName = sys.argv[2]
+    modelName = sys.argv[3]
+
+    with open(trainingName,"rb") as FileTraining:
         #print(sys.argv[1])
         trainingData = pickle.load(FileTraining)
     
@@ -101,15 +106,15 @@ if __name__ == '__main__':
     #words = glove[:, 0]
     #vectors = glove[:, 1:].astype('float')
     #Load embedding
-    with open(sys.argv[2], 'rb') as f:
+    with open(embeddingName, 'rb') as f:
         embedding = pickle.load(f)
 
     #print(len(embedding.vocab))
     #print(embedding.vocab[:10])
-    model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(embedding.vocab), 1, 'none') # yes/no 2
-    #model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM1, HIDDEN_DIM2, len(word2idx), 2, vectors) # yes/no 2
-    if sys.argv[3] != 'none':
-        model.load_state_dict(torch.load(sys.argv[3]))
+    #model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(embedding.vocab), 1, 'none') # yes/no 2
+    model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM1, HIDDEN_DIM2, len(embedding.vocab), 1, embedding.vectors) # yes/no 2
+    if modelName != 'none':
+        model.load_state_dict(torch.load(modelName))
     model = model.to(device)
     loss_function = nn.BCEWithLogitsLoss(pos_weight=pos_weight_cal, reduction='none')
     #optimizer = optim.SGD(model.parameters(), lr=0.1)
