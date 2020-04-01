@@ -7,10 +7,10 @@ import sys
 import json
 #from RNN import LSTMTagger
 #from RNN import HIDDEN_DIM, EMBEDDING_DIM
-from seq2tag.DoubleLSTM import LSTMTagger
-from seq2tag.DoubleLSTM import EMBEDDING_DIM, HIDDEN_DIM1, HIDDEN_DIM2
-#from Dropout import LSTMTagger
-#from Dropout import EMBEDDING_DIM, HIDDEN_DIM1, HIDDEN_DIM2
+#from seq2tag.DoubleLSTM import LSTMTagger
+#from seq2tag.DoubleLSTM import EMBEDDING_DIM, HIDDEN_DIM1, HIDDEN_DIM2
+from seq2tag.Dropout import LSTMTagger
+from seq2tag.Dropout import EMBEDDING_DIM, HIDDEN_DIM1, HIDDEN_DIM2
 #from seq2tag.BidirectionLSTM import LSTMTagger
 #from seq2tag.BidirectionLSTM import HIDDEN_DIM, EMBEDDING_DIM
 import matplotlib.pyplot as plt
