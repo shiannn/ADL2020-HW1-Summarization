@@ -17,9 +17,12 @@ import matplotlib.pyplot as plt
 from dataset import SeqTaggingDataset
 import torch.utils.data as Data
 import pickle
+from predict import postprocessing
+from multiprocessing import Pool, cpu_count
+from rouge_score.rouge_scorer import RougeScorer
 
-PADDINGWORD = 111359
-PADDINGTARG = [-100,-100]
+ROUGE_TYPES = ['rouge1', 'rouge2', 'rougeL']
+USE_STEMMER = False
 
 def countClassNum(training):
     zeroNum = 0
@@ -29,58 +32,70 @@ def countClassNum(training):
         oneNum += td['label'].count(1)
     return zeroNum, oneNum
 
-def getMaxLen(training_data):
-    maxLen = -1
-    for i in range(len(training_data)):
-        temp = len(training_data[i][0])
-        if temp > maxLen:
-            maxLen = temp
-    return maxLen
-
-def prepare_sequence(seq, to_ix):
-    idxs = []
-    for w in seq:
-        Low = w.lower()
-        if Low in to_ix:
-            idxs.append(to_ix[Low])
+def validError(predicts, answers):
+    target = []
+    prediction = []
+    for id, p in predicts.items():
+        a = answers.get(id, None)
+        if a is None:
+            raise Exception(f"Cannot find answer to Prediction ID: {id}")
         else:
-            idxs.append(0)
-    """
-    ### padding
-    for i in range(len(seq), maxLen):
-        idxs.append(PADDINGWORD)
-    #return torch.tensor(idxs, dtype=torch.long)
-    """
-    return idxs
+            sent_bounds = {i: bound for i, bound in enumerate(a['sent_bounds'])}
+            predict_sent = ''
+            for sent_idx in p['predict_sentence_index']:
+                start, end = sent_bounds.get(sent_idx, (0, 0))
+                predict_sent += a['text'][start:end]
+        target.append(a['summary'])
+        prediction.append(predict_sent)        
 
-def prepare_target(tags):
-    #print(tags)
-    targets = []
-    for tag in tags:
-        if tag == 0:
-            targets.append([1,0])
-        elif tag == 1:
-            targets.append([0,1])
-    """
-    for i in range(len(tags), maxLen):
-        targets.append(PADDINGTARG)
-    """
-    return targets
+    rouge_scorer = RougeScorer(ROUGE_TYPES, use_stemmer=USE_STEMMER)
+    with Pool(cpu_count()) as pool:
+        scores = pool.starmap(rouge_scorer.score,
+                              [(t, p) for t, p in zip(target, prediction)])
+    r1s = np.array([s['rouge1'].fmeasure for s in scores])
+    r2s = np.array([s['rouge2'].fmeasure for s in scores])
+    rls = np.array([s['rougeL'].fmeasure for s in scores])
+    scores = {
+        'mean': {
+            'rouge-1': r1s.mean(),
+            'rouge-2': r2s.mean(),
+            'rouge-l': rls.mean()
+        },
+        'std': {
+            'rouge-1': r1s.std(),
+            'rouge-2': r2s.std(),
+            'rouge-l': rls.std()
+        },
+    }
+    print(json.dumps(scores, indent='    '))
+    return [r1s.mean(),r1s.std(),
+            r2s.mean(), r2s.std(),
+            rls.mean(), rls.std()]
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
-        print('usage: python3 train.py train.pkl embedding.pkl loadModel.pt')
+    if len(sys.argv) != 5:
+        print('usage: python3 train.py train.pkl valid.pkl embedding.pkl loadModel.pt')
         exit(0)
     
     trainingName = sys.argv[1]
-    embeddingName = sys.argv[2]
-    modelName = sys.argv[3]
+    validName = sys.argv[2]
+    embeddingName = sys.argv[3]
+    modelName = sys.argv[4]
 
     with open(trainingName,"rb") as FileTraining:
         #print(sys.argv[1])
         trainingData = pickle.load(FileTraining)
     
+    with open(validName,"rb") as FileValidating:
+        #print(sys.argv[1])
+        validData = pickle.load(FileValidating)
+
+    with open("data/valid.jsonl","r") as f:
+        answers = [json.loads(line) for line in f]
+        answers = {a['id']: a for a in answers}    
+    
     trainingData = SeqTaggingDataset(trainingData)
+    validData = SeqTaggingDataset(validData)
     BATCH_SIZE=32
     EPOCH = 20
     stEPOCH = 1
@@ -91,6 +106,12 @@ if __name__ == '__main__':
         shuffle=True,               # 要不要打乱数据 (打乱比较好)
         num_workers=2,              # 多线程来读数据
         collate_fn=trainingData.collate_fn
+    )
+    loader_valid = Data.DataLoader(
+        dataset=validData,      # torch TensorDataset format
+        batch_size=1,      # mini batch size
+        shuffle=True,               # 要不要打乱数据 (打乱比较好)
+        collate_fn=validData.collate_fn
     )
 
     if torch.cuda.is_available():
@@ -122,8 +143,14 @@ if __name__ == '__main__':
     #optimizer = optim.LBFGS(model.parameters(), lr=0.1)
     
     plotList = []
+    M1 = []
+    S1 = []
+    M2 = []
+    S2 = []
+    Ml = []
+    Sl = []
     for epoch in range(stEPOCH,EPOCH+1):  # again, normally you would NOT do 300 epochs, it is toy data
-        lossValueEachEpoch = []
+        trainingLoss = []
         for i, batch in enumerate(loader):
             #print(batch.keys())
             try:
@@ -146,7 +173,7 @@ if __name__ == '__main__':
                 #loss = torch.where((targets<0), loss, loss)
                 loss = loss[targets>=0].mean()
                 #loss = loss.view(-1,1)[targets.view(-1,1)>0].mean()
-                lossValueEachEpoch.append(loss)
+                trainingLoss.append(loss)
 
                 print('epoch:{}/{} {}/{} loss:{}'.format(epoch, EPOCH, i, len(loader.dataset), loss))
                 loss.backward()
@@ -154,7 +181,45 @@ if __name__ == '__main__':
             except KeyboardInterrupt:
                 print('Interrupted')
                 exit(0)
-        plotList.append(sum(lossValueEachEpoch)/len(lossValueEachEpoch))
+        predicts = {}
+        for cnt,batch in enumerate(loader_valid):
+            try:
+                X = batch['text']
+                Y = batch['label']
+                sentRange = batch['sent_range']
+                Id = batch['id'][0]
+                #print(X,Y,Id)
+                X = X.to(device, dtype=torch.long)
+                #print(X.shape)
+                tag_scores = model(X)
+                #print(tag_scores)
+                predict_sent_idx = postprocessing(tag_scores, sentRange)
+                print('predict_sent_idx {}/{}'.format(cnt, len(loader_valid.dataset)), predict_sent_idx)
+                toWrite = {}
+                toWrite["id"] = Id
+                toWrite["predict_sentence_index"] = predict_sent_idx
+            except KeyboardInterrupt:
+                print('Interrupted')
+                exit(0)
+            except:
+                toWrite["id"] = Id
+                toWrite["predict_sentence_index"] = []
+            predicts[Id] = toWrite
+        [m1,s1,m2,s2,ml,sl] = validError(predicts, answers)
+        M1.append(m1)
+        M2.append(m2)
+        S1.append(s1)
+        S2.append(s2)
+        Ml.append(ml)
+        Sl.append(sl)
+        plotList.append(sum(trainingLoss)/len(trainingLoss))
         plt.plot(plotList)
+        plt.plot(M1)
+        plt.plot(S1)
+        plt.plot(M2)
+        plt.plot(S2)
+        plt.plot(Ml)
+        plt.plot(Sl)
+
         plt.savefig('figplot/'+'1'+'-'+'1'+'withDataloader.png')    
         torch.save(model.state_dict(), 'checkpoint/'+'BCEloader'+str(epoch)+'.pt')

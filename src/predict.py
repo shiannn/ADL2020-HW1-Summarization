@@ -6,10 +6,10 @@ import numpy as np
 import json
 import sys
 import pickle
-#from RNN import LSTMTagger
-#from RNN import HIDDEN_DIM, EMBEDDING_DIM
-from seq2tag.BidirectionLSTM import LSTMTagger
-from seq2tag.BidirectionLSTM import HIDDEN_DIM, EMBEDDING_DIM
+from seq2tag.DoubleLSTM import LSTMTagger
+from seq2tag.DoubleLSTM import EMBEDDING_DIM, HIDDEN_DIM1, HIDDEN_DIM2
+#from seq2tag.BidirectionLSTM import LSTMTagger
+#from seq2tag.BidirectionLSTM import HIDDEN_DIM, EMBEDDING_DIM
 from torch.utils.data import Dataset, DataLoader
 import torch.utils.data as Data
 from torch.nn import Sigmoid
@@ -87,8 +87,8 @@ if __name__ == '__main__':
 
     with open(embeddingName, 'rb') as f:
         embedding = pickle.load(f)
-    #model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word2idx), 2, 'none') # yes/no 2
-    model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(embedding.vocab), 1, 'none') # yes/no 2
+    model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM1, HIDDEN_DIM2, len(embedding.vocab), 1, embedding.vectors) # yes/no 2
+    #model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(embedding.vocab), 1, 'none') # yes/no 2
     model.load_state_dict(torch.load(modelName))
     model = model.to(device)
     model.eval()

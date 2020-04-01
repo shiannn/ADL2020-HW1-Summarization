@@ -1,7 +1,21 @@
 import torch
 from torch.nn import Sigmoid
+import torch.nn as nn
+from multiprocessing import Pool, cpu_count
+import json
+import numpy as np
+from rouge_score.rouge_scorer import RougeScorer
 
-A = torch.tensor([1,2,3], dtype=torch.float64)
-f = Sigmoid()
-print(A)
-print(f(A))
+with open("predict.jsonl","r") as f:
+    for line in f:
+        print(line)
+        a = json.loads(line)
+        print(a)
+        p = {a['id']: a}
+        print(p)
+        break
+    """
+    predicts = [json.loads(line) for line in f]
+    predicts = {p['id']: p for p in predicts}
+    print(predicts)
+    """
