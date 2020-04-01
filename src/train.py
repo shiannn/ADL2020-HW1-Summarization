@@ -14,11 +14,20 @@ import json
 from seq2tag.BidirectionLSTM import LSTMTagger
 from seq2tag.BidirectionLSTM import HIDDEN_DIM, EMBEDDING_DIM
 import matplotlib.pyplot as plt
-#from SeqTagDataSet import SeqTaggingDataset
+from dataset import SeqTaggingDataset
+import torch.utils.data as Data
 import pickle
 
 PADDINGWORD = 111359
 PADDINGTARG = [-100,-100]
+
+def countClassNum(training):
+    zeroNum = 0
+    oneNum = 0
+    for td in trainingData:
+        zeroNum += td['label'].count(0)
+        oneNum += td['label'].count(1)
+    return zeroNum, oneNum
 
 def getMaxLen(training_data):
     maxLen = -1
@@ -59,75 +68,82 @@ def prepare_target(tags):
     return targets
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print('usage: python3 train.py train.pkl loadModel.pt')
+    if len(sys.argv) != 4:
+        print('usage: python3 train.py train.pkl embedding.pkl loadModel.pt')
         exit(0)
     with open(sys.argv[1],"rb") as FileTraining:
         #print(sys.argv[1])
         trainingData = pickle.load(FileTraining)
     
-    print(trainingData)
+    trainingData = SeqTaggingDataset(trainingData)
+    BATCH_SIZE=32
+    EPOCH = 20
+    stEPOCH = 1
+    
+    loader = Data.DataLoader(
+        dataset=trainingData,      # torch TensorDataset format
+        batch_size=BATCH_SIZE,      # mini batch size
+        shuffle=True,               # 要不要打乱数据 (打乱比较好)
+        num_workers=2,              # 多线程来读数据
+        collate_fn=trainingData.collate_fn
+    )
 
-    """
     if torch.cuda.is_available():
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    EPOCH = 10
-    stEPOCH = 1
-
-    BATCHSIZE = 32
-    seqTaggingDataset = SeqTaggingDataset()
-    zeroNum, oneNum = seqTaggingDataset.countClassNum(seqTaggingDataset.training_data)
+    zeroNum, oneNum = countClassNum(trainingData)
     print(zeroNum, oneNum)
     # pos_weight should be negative/positive
-    pos_weight_cal = torch.tensor([1, zeroNum / oneNum], dtype=torch.float)
+    pos_weight_cal = torch.tensor(zeroNum / oneNum, dtype=torch.float)
     pos_weight_cal = pos_weight_cal.to(device)
 
     #glove = np.loadtxt('../myEmbedding.txt', dtype='str', comments=None)
     #words = glove[:, 0]
     #vectors = glove[:, 1:].astype('float')
-    
-    model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(seqTaggingDataset.word2idx), 2, 'none') # yes/no 2
+    #Load embedding
+    with open(sys.argv[2], 'rb') as f:
+        embedding = pickle.load(f)
+
+    #print(len(embedding.vocab))
+    #print(embedding.vocab[:10])
+    model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(embedding.vocab), 1, 'none') # yes/no 2
     #model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM1, HIDDEN_DIM2, len(word2idx), 2, vectors) # yes/no 2
-    if sys.argv[2] != 'none':
-        model.load_state_dict(torch.load(sys.argv[2]))
+    if sys.argv[3] != 'none':
+        model.load_state_dict(torch.load(sys.argv[3]))
     model = model.to(device)
     loss_function = nn.BCEWithLogitsLoss(pos_weight=pos_weight_cal, reduction='none')
     #optimizer = optim.SGD(model.parameters(), lr=0.1)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     #optimizer = optim.LBFGS(model.parameters(), lr=0.1)
     
-    ### get DataLoader
-    train_loader = DataLoader(dataset=seqTaggingDataset,
-                batch_size=BATCHSIZE,
-                shuffle=True,
-                collate_fn=seqTaggingDataset.collate_fn)
-
     plotList = []
     for epoch in range(stEPOCH,EPOCH+1):  # again, normally you would NOT do 300 epochs, it is toy data
         lossValueEachEpoch = []
-        for i, batch in enumerate(train_loader):
-            #print(torch.tensor(batch['X']), torch.tensor(batch['Y']))
+        for i, batch in enumerate(loader):
+            #print(batch.keys())
             try:
-                Xlist = batch['X']
-                Ylist = batch['Y']
-                if Xlist == []:
-                    continue
+                X = batch['text']
+                Y = batch['label']
                 meanInBatch = []
                 model.zero_grad()
                 # Step 2. Get our inputs ready for the network, that is, turn them into
                 # Tensors of word indices.
-                sentence_in = torch.tensor(Xlist, dtype=torch.long).to(device)
-                targets = torch.tensor(Ylist, dtype=torch.float64).to(device)
+                sentence_in = X.to(device, dtype=torch.long)
+                targets = Y.to(device, dtype=torch.float64)
+                #targets = targets.unsqueeze(2)
                 # Step 3. Run our forward pass.
-                tag_scores = model(sentence_in)
-
-                #print('targets',targets)
-                loss = loss_function(tag_scores, targets)
-                loss = loss.view(-1,1)[targets.view(-1,1)>=0].mean()
+                scores = model(sentence_in)
+                scores = torch.squeeze(scores, 2)
+                #print(scores.shape)
+                #print(targets.shape)
+                loss = loss_function(scores, targets)
+                
+                #loss = torch.where((targets<0), loss, loss)
+                loss = loss[targets>=0].mean()
+                #loss = loss.view(-1,1)[targets.view(-1,1)>0].mean()
                 lossValueEachEpoch.append(loss)
 
-                print('epoch:{}/{} batch:{}/{} loss:{}'.format(epoch, EPOCH, i, len(train_loader), loss))
+                print('epoch:{}/{} {}/{} loss:{}'.format(epoch, EPOCH, i, len(loader.dataset), loss))
                 loss.backward()
                 optimizer.step()
             except KeyboardInterrupt:
@@ -135,6 +151,5 @@ if __name__ == '__main__':
                 exit(0)
         plotList.append(sum(lossValueEachEpoch)/len(lossValueEachEpoch))
         plt.plot(plotList)
-        plt.savefig('figplot5/'+'1'+'-'+'1'+'withDataloader.png')    
-        torch.save(model.state_dict(), 'checkpoint5/'+'BCEloader'+str(epoch)+'-'+str(i)+'.pt')
-        """
+        plt.savefig('figplot/'+'1'+'-'+'1'+'withDataloader.png')    
+        torch.save(model.state_dict(), 'checkpoint/'+'BCEloader'+str(epoch)+'.pt')
