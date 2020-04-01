@@ -1,0 +1,8 @@
+{
+    "train": "./data/train.jsonl",
+    "valid": "./data/valid.jsonl",
+    "test": "./data/test.jsonl",
+    "embedding": "./glove.840B.300d.txt",
+    "max_text_len": 300,
+    "lower_case": true
+}
