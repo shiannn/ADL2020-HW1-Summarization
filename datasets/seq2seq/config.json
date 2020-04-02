@@ -4,6 +4,6 @@
     "test": "./data/test.jsonl",
     "embedding": "./glove.840B.300d.txt",
     "max_text_len": 300,
-    "max_summary_len": 80,
+    "max_summary_len": 74,
     "lower_case": true
 }
