@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from dataset import SeqTaggingDataset
 import torch.utils.data as Data
 import pickle
-from predict import postprocessing
+from predictSeq2Tag import postprocessing
 from multiprocessing import Pool, cpu_count
 from rouge_score.rouge_scorer import RougeScorer
 
