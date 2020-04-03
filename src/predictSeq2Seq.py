@@ -66,7 +66,7 @@ def evaluate(encoder, decoder, input_tensor, max_length):
 
 def postprocessing(indexes, embedding):
     print(indexes)
-    sentence = [embedding.vocab[idx] for idx in indexes if isinstance(idx, int)]
+    sentence = [embedding.vocab[idx] if isinstance(idx, int) else embedding.vocab[2] for idx in indexes]
     return sentence
 
 if __name__ == '__main__':

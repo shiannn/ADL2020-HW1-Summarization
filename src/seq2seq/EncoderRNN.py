@@ -23,6 +23,7 @@ class EncoderRNN(nn.Module):
         #print('dummyGRUHidden shape', dummyHidden.shape)
 
     def forward(self, input, hidden):
+        # 此 view 為 view(seq字數(pad到多少), batch_Size(32), feature數(glove 300維))
         embedded = self.embedding(input).view(1,1,-1)
         #embedded = self.embedding(input)
         #print(embedded)
@@ -32,6 +33,7 @@ class EncoderRNN(nn.Module):
 
     def initHidden(self):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # hidden (,, feature數(glove 300維))
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
 hidden_size = 300
