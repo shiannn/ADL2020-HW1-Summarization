@@ -7,7 +7,7 @@ import torch.nn as nn
 import pickle
 import json
 from seq2seq.DecoderRNN import DecoderRNN
-from seq2seq.EncoderRNN import EncoderRNN
+from seq2seq.EncoderRNN import EncoderRNN, hidden_size
 import random
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -104,19 +104,18 @@ if __name__ == '__main__':
     validData = Seq2SeqDataset(validData)
 
     BATCH_SIZE=1
-    hidden_size = 256
 
     with open(embeddingName, 'rb') as f:
         embedding = pickle.load(f)
 
-    encoder = EncoderRNN(len(embedding.vocab), hidden_size).to(device)
-    decoder = DecoderRNN(hidden_size, len(embedding.vocab)).to(device)
+    encoder = EncoderRNN(len(embedding.vocab), hidden_size, embedding.vectors).to(device)
+    decoder = DecoderRNN(hidden_size, len(embedding.vocab), embedding.vectors).to(device)
 
     loader = Data.DataLoader(
         dataset=trainingData,      # torch TensorDataset format
         batch_size=BATCH_SIZE,      # mini batch size
         shuffle=True,               # 要不要打乱数据 (打乱比较好)
-        num_workers=2,              # 多线程来读数据
+        #num_workers=1,              # 多线程来读数据
         collate_fn=trainingData.collate_fn
     )
     
@@ -135,8 +134,12 @@ if __name__ == '__main__':
     criterion = nn.NLLLoss()
 
     max_length = max(maxTextLen, maxSummaryLen)
+    print('hello')
     for i, batch in enumerate(loader):
         input_tensor = batch['text'].reshape(-1,1).to(device)
         target_tensor = batch['summary'].reshape(-1,1).to(device)        
         loss = train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length)
-        print('{}/{} loss:{}'.format(i, len(loader.dataset), loss))
+        print('training loss {} {}/{}'.format(loss, i, len(loader.dataset)))
+        if i%1000 == 0:
+            torch.save(encoder.state_dict(), 'checkpoint_seq2seq/'+'encoder'+str(i)+'.pt')
+            torch.save(decoder.state_dict(), 'checkpoint_seq2seq/'+'decoder'+str(i)+'.pt')
