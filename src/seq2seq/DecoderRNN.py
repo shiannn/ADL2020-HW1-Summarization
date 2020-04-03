@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
+from seq2seq.EncoderRNN import hidden_size, BATCH_SIZE
 
 class DecoderRNN(nn.Module):
     def __init__(self, hidden_size, output_size, pretrained_weight):
@@ -16,11 +17,14 @@ class DecoderRNN(nn.Module):
         self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, input, hidden):
-        output = self.embedding(input).view(1, 1, -1)
+        # 每次丟好幾個batch的第一個字進來 -1 表示他們都有一個詞向量
+        output = self.embedding(input).view(1, BATCH_SIZE, -1)
+        #output = self.embedding(input)
+        #print('embedded.shape', output.shape)
         output = F.relu(output)
         output, hidden = self.gru(output, hidden)
         output = self.softmax(self.out(output[0]))
         return output, hidden
 
     def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
+        return torch.zeros(1, BATCH_SIZE, self.hidden_size, device=device)

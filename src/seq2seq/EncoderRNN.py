@@ -1,6 +1,9 @@
 import torch.nn as nn
 import torch
 
+hidden_size = 300
+BATCH_SIZE = 32
+
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size, pretrained_weight):
         super(EncoderRNN, self).__init__()
@@ -24,9 +27,12 @@ class EncoderRNN(nn.Module):
 
     def forward(self, input, hidden):
         # 此 view 為 view(seq字數(pad到多少), batch_Size(32), feature數(glove 300維))
-        embedded = self.embedding(input).view(1,1,-1)
+        # 每次丟好幾個batch的第一個字進來 -1 表示他們都有一個詞向量
+        embedded = self.embedding(input).view(1, BATCH_SIZE, -1)
+        #print('input.shape', input.shape)
         #embedded = self.embedding(input)
-        #print(embedded)
+        #embedded = self.embedding(input)
+        #print('embedded.shape', embedded.shape)
         output = embedded
         output, hidden = self.gru(output, hidden)
         return output, hidden
@@ -34,6 +40,4 @@ class EncoderRNN(nn.Module):
     def initHidden(self):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # hidden (,, feature數(glove 300維))
-        return torch.zeros(1, 1, self.hidden_size, device=device)
-
-hidden_size = 300
+        return torch.zeros(1, BATCH_SIZE, self.hidden_size, device=device)
