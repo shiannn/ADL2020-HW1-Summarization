@@ -7,15 +7,21 @@ import torch.nn as nn
 import pickle
 import json
 from seq2seq.DecoderRNN import DecoderRNN
-from seq2seq.EncoderRNN import EncoderRNN, hidden_size, BATCH_SIZE
+from seq2seq.EncoderRNN import EncoderRNN, hidden_size
 import random
 import matplotlib.pyplot as plt
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 SOS_token = 1
 EOS_token = 2
+BATCH_SIZE = 32
 
-def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length):
+def tensor2word(tns, embedding):
+    words = [embedding.vocab[a] for a in tns]
+    print(words)
+    #return words
+
+def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length, embedding):
     input_tensor = torch.t(input_tensor)
     target_tensor = torch.t(target_tensor)
     #print('input_tensor', input_tensor)
@@ -30,7 +36,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 
     encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
 
-    loss = 0
+    TotalLoss = 0
 
     for ei in range(input_length):
         encoder_output, encoder_hidden = encoder(
@@ -43,7 +49,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     decoder_hidden = encoder_hidden
 
     teacher_forcing_ratio = 0.5
-    use_teacher_forcing = True
+    use_teacher_forcing = False
     #use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
     if use_teacher_forcing:
@@ -55,7 +61,8 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
             #    decoder_input, decoder_hidden)
             decoder_output, decoder_hidden = decoder(
                 decoder_input, decoder_hidden)
-            loss += criterion(decoder_output, target_tensor[di])
+            loss = criterion(decoder_output, target_tensor[di])
+            TotalLoss += loss[target_tensor[di]>0].mean()
             decoder_input = target_tensor[di]  # Teacher forcing
 
     else:
@@ -70,16 +77,33 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach()  # detach from history as input
 
-            loss += criterion(decoder_output, target_tensor[di])
-            if decoder_input.item() == EOS_token:
-                break
+            loss = criterion(decoder_output, target_tensor[di])
+            #tensor2word(target_tensor[di], embedding)
+            TotalLoss += loss[target_tensor[di]>0].mean()
 
-    loss.backward()
+            #if decoder_input.item() == EOS_token:
+            #    break
+
+    TotalLoss.backward()
 
     encoder_optimizer.step()
     decoder_optimizer.step()
 
-    return loss.item() / target_length
+    return TotalLoss.item() / target_length
+
+if __name__ == '__main1__':
+    if len(sys.argv) != 5:
+        print('usage: python3 train.py train.pkl valid.pkl embedding.pkl loadModel.pt')
+        exit(0)
+    trainingName = sys.argv[1]
+    validName = sys.argv[2]
+    embeddingName = sys.argv[3]
+    modelName = sys.argv[4]
+
+    with open(embeddingName, 'rb') as f:
+        embedding = pickle.load(f)
+    A = torch.tensor([1,2,3,4,5,6,7,8,9,10])
+    tensor2word(A, embedding)
 
 if __name__ == '__main__':
     if len(sys.argv) != 5:
@@ -110,9 +134,9 @@ if __name__ == '__main__':
 
     with open(embeddingName, 'rb') as f:
         embedding = pickle.load(f)
-
-    encoder = EncoderRNN(len(embedding.vocab), hidden_size, embedding.vectors).to(device)
-    decoder = DecoderRNN(hidden_size, len(embedding.vocab), embedding.vectors).to(device)
+    
+    encoder = EncoderRNN(len(embedding.vocab), hidden_size, embedding.vectors, BATCH_SIZE).to(device)
+    decoder = DecoderRNN(hidden_size, len(embedding.vocab), embedding.vectors, BATCH_SIZE).to(device)
 
     loader = Data.DataLoader(
         dataset=trainingData,      # torch TensorDataset format
@@ -135,7 +159,7 @@ if __name__ == '__main__':
     learning_rate=0.01
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    criterion = nn.NLLLoss()
+    criterion = nn.NLLLoss(reduction='none')
 
     max_length = max(maxTextLen, maxSummaryLen)
     print('hello')
@@ -148,8 +172,8 @@ if __name__ == '__main__':
             #target_tensor = batch['summary'].reshape(-1,1).to(device)
             input_tensor = batch['text'].to(device)
             target_tensor = batch['summary'].to(device)
-            loss = train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length)
-            print('training loss {} {}/{}'.format(loss, i*BATCH_SIZE, len(loader.dataset)))
+            loss = train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length, embedding)
+            print('training loss {} epoch {}/{} {}/{}'.format(loss, epoch, EPOCH, i*BATCH_SIZE, len(loader.dataset)))
             tempError.append(loss)
         epochError.append(sum(tempError)/len(tempError))
         tempError = []

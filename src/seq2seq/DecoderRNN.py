@@ -1,10 +1,11 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from seq2seq.EncoderRNN import hidden_size, BATCH_SIZE
+from seq2seq.EncoderRNN import hidden_size
 
 class DecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, pretrained_weight):
+    def __init__(self, hidden_size, output_size, pretrained_weight, batch_Size):
         super(DecoderRNN, self).__init__()
+        self.batch_Size = batch_Size
         self.hidden_size = hidden_size
 
         self.embedding = nn.Embedding(output_size, hidden_size)
@@ -18,7 +19,7 @@ class DecoderRNN(nn.Module):
 
     def forward(self, input, hidden):
         # 每次丟好幾個batch的第一個字進來 -1 表示他們都有一個詞向量
-        output = self.embedding(input).view(1, BATCH_SIZE, -1)
+        output = self.embedding(input).view(1, self.batch_Size, -1)
         #output = self.embedding(input)
         #print('embedded.shape', output.shape)
         output = F.relu(output)
@@ -27,4 +28,4 @@ class DecoderRNN(nn.Module):
         return output, hidden
 
     def initHidden(self):
-        return torch.zeros(1, BATCH_SIZE, self.hidden_size, device=device)
+        return torch.zeros(1, self.batch_Size, self.hidden_size, device=device)
