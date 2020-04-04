@@ -8,27 +8,19 @@ class EncoderRNN(nn.Module):
         super(EncoderRNN, self).__init__()
         self.batch_Size = batch_Size
         self.hidden_size = hidden_size
+        self.num_layers = 1
+        self.num_directions = 1
 
         self.embedding = nn.Embedding(input_size, hidden_size)
         if (pretrained_weight is not 'none'):
             self.embedding.weight.data.copy_(pretrained_weight)
-        #print(self.embedding)
-        #print(self.embedding.weight)
-        #dummyInput = torch.tensor([[0,1],[2,3]], dtype=torch.long)
-        dummyInput = torch.tensor([0], dtype=torch.long)
-        dummyEmbed = self.embedding(dummyInput)
-        #print('dummyEmbed shape', dummyEmbed.shape)
-        dummyHidden = torch.zeros(1, 1, self.hidden_size)
-        #print('hidden shape', dummyHidden.shape)
         self.gru = nn.GRU(hidden_size, hidden_size)
-        dummyGRUout, dummyHidden = self.gru(dummyEmbed.view(1,1,-1), dummyHidden)
-        #print('dummyGRUout shape', dummyGRUout.shape)
-        #print('dummyGRUHidden shape', dummyHidden.shape)
 
     def forward(self, input, hidden):
         # 此 view 為 view(seq字數(pad到多少), batch_Size(32), feature數(glove 300維))
         # 每次丟好幾個batch的第一個字進來 -1 表示他們都有一個詞向量
-        embedded = self.embedding(input).view(1, self.batch_Size, -1)
+        #embedded = self.embedding(input).view(1, self.batch_Size, -1)
+        embedded = self.embedding(input)
         #print('input.shape', input.shape)
         #embedded = self.embedding(input)
         #embedded = self.embedding(input)
@@ -40,4 +32,5 @@ class EncoderRNN(nn.Module):
     def initHidden(self):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # hidden (,, feature數(glove 300維))
-        return torch.zeros(1, self.batch_Size, self.hidden_size, device=device)
+        # num_layers*num_directions, batch_size, hidden_size
+        return torch.zeros(self.num_layers*self.num_directions, self.batch_Size, self.hidden_size, device=device)

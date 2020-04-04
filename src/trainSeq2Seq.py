@@ -38,51 +38,25 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 
     TotalLoss = 0
 
-    for ei in range(input_length):
-        encoder_output, encoder_hidden = encoder(
-            input_tensor[ei], encoder_hidden)
-        #encoder_outputs[ei] = encoder_output[0, 0]
+    # input_tensor (seq_len, batch_size)
+    encoder_output, encoder_hidden = encoder(
+        input_tensor, encoder_hidden)
 
     #decoder_input = torch.tensor([[SOS_token]]* BATCH_SIZE, device=device)
     decoder_input = torch.tensor([SOS_token]* BATCH_SIZE, device=device)
 
     decoder_hidden = encoder_hidden
 
-    teacher_forcing_ratio = 0.5
-    use_teacher_forcing = False
-    #use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-
-    if use_teacher_forcing:
-        # Teacher forcing: Feed the target as the next input
-        for di in range(target_length):
-            #decoder_output, decoder_hidden, decoder_attention = decoder(
-            #    decoder_input, decoder_hidden, encoder_outputs)
-            #decoder_output, decoder_hidden, decoder_attention = decoder(
-            #    decoder_input, decoder_hidden)
-            decoder_output, decoder_hidden = decoder(
-                decoder_input, decoder_hidden)
-            loss = criterion(decoder_output, target_tensor[di])
-            TotalLoss += loss[target_tensor[di]>0].mean()
-            decoder_input = target_tensor[di]  # Teacher forcing
-
-    else:
-        # Without teacher forcing: use its own predictions as the next input
-        for di in range(target_length):
-            #decoder_output, decoder_hidden, decoder_attention = decoder(
-            #    decoder_input, decoder_hidden, encoder_outputs)
-            #decoder_output, decoder_hidden, decoder_attention = decoder(
-            #    decoder_input, decoder_hidden)
-            decoder_output, decoder_hidden = decoder(
-                decoder_input, decoder_hidden)
-            topv, topi = decoder_output.topk(1)
-            decoder_input = topi.squeeze().detach()  # detach from history as input
-
-            loss = criterion(decoder_output, target_tensor[di])
-            #tensor2word(target_tensor[di], embedding)
-            TotalLoss += loss[target_tensor[di]>0].mean()
-
-            #if decoder_input.item() == EOS_token:
-            #    break
+    for di in range(target_length):
+        #decoder_output, decoder_hidden, decoder_attention = decoder(
+        #    decoder_input, decoder_hidden, encoder_outputs)
+        #decoder_output, decoder_hidden, decoder_attention = decoder(
+        #    decoder_input, decoder_hidden)
+        decoder_output, decoder_hidden = decoder(
+            decoder_input, decoder_hidden)
+        loss = criterion(decoder_output, target_tensor[di])
+        TotalLoss += loss[target_tensor[di]>0].mean()
+        decoder_input = target_tensor[di]  # Teacher forcing
 
     TotalLoss.backward()
 
