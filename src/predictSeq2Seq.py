@@ -15,6 +15,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 SOS_token = 1
 EOS_token = 2
 
+def tensor2word(tns, embedding):
+    words = [embedding.vocab[a] for a in tns]
+    return words
+
 def indexesFromSentence(lang, sentence):
     return [lang.word2index[word] for word in sentence.split(' ')]
 
@@ -33,17 +37,21 @@ def evaluate(encoder, decoder, input_tensor, max_length):
 
     encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
     print('input_length', input_length)
+    encoder_output, encoder_hidden = encoder(
+        input_tensor, encoder_hidden)
+    """
     for ei in range(input_length):
         #encoder_output, encoder_hidden = encoder(input_tensor[ei],
         #                                         encoder_hidden)
         encoder_output, encoder_hidden = encoder(input_tensor[ei],
                                                     encoder_hidden)
         #encoder_outputs[ei] += encoder_output[0, 0]
+    """
 
-    decoder_input = torch.tensor([[SOS_token]]* BATCH_SIZE, device=device)  # SOS
+    decoder_input = torch.tensor([SOS_token]* BATCH_SIZE, device=device)
 
     decoder_hidden = encoder_hidden
-    print('decoder_hidden', decoder_hidden)
+    #print('decoder_hidden', decoder_hidden)
 
     decoded_words = []
     decoder_attentions = torch.zeros(max_length, max_length)
@@ -59,15 +67,22 @@ def evaluate(encoder, decoder, input_tensor, max_length):
         #print('decoder_output', decoder_output)
         #print('decoder_output.shape', decoder_output.shape)
         #print('decoder_output.data', decoder_output.data)
-        topv, topi = decoder_output.data.topk(1)
-        if topi.item() == EOS_token:
+        values, indices = torch.topk(decoder_output,k=1,dim=1)
+        #print('indices', indices)
+        words = tensor2word(indices, embedding)
+
+        #print('indices', indices)
+        #print('words', words)
+        #topv, topi = decoder_output.data.topk(1)
+        if indices[0].item() == EOS_token:
             decoded_words.append('<EOS>')
             break
         else:
             #decoded_words.append(output_lang.index2word[topi.item()])
-            decoded_words.append(topi.item())
+            decoded_words.append(indices[0].item())
 
-        decoder_input = topi.squeeze().detach()
+        #decoder_input = topi.squeeze().detach()
+        decoder_input = indices[0]
 
     #return decoded_words, decoder_attentions[:di + 1]
     return decoded_words
@@ -128,9 +143,27 @@ if __name__ == '__main__':
             for cnt,batch in enumerate(loader):
                 #print(batch.keys())
                 X = batch['text'].to(device)
+                idx = batch['id']
                 outputWord = evaluate(encoder1, decoder1, X, max_length)
                 #evaluate(encoder1, decoder1, X, max_length)
                 sent = postprocessing(outputWord, embedding)
-                print(sent)
-                if cnt == 3:
+                sentWithoutUnk = [a for a in sent if a != '<unk>']
+                print(idx)
+                print(sentWithoutUnk)
+                joinSentence = sentWithoutUnk[1]
+                for i, word in enumerate(sentWithoutUnk[2:-1]):
+                    if word == "'s" or sentWithoutUnk[i-1]=="\"":
+                        joinSentence += word
+                    else:
+                        joinSentence += ' '
+                        joinSentence += word
+                #joinSentence = ' '.join()
+                print(joinSentence)
+                toWrite = {
+                    "id":idx[0],
+                    "predict":joinSentence
+                }
+                json.dump(toWrite, f_predict)
+                f_predict.write("\n")
+                if cnt == 10:
                     break

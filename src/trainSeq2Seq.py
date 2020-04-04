@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 SOS_token = 1
 EOS_token = 2
-BATCH_SIZE = 8
+BATCH_SIZE = 32
 
 def tensor2word(tns, embedding):
     words = [embedding.vocab[a] for a in tns]
@@ -138,9 +138,9 @@ if __name__ == '__main__':
     maxSummaryLen = config.get('max_summary_len')
     print(maxTextLen, maxSummaryLen)
     
-    learning_rate=0.01
-    encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
+    learning_rate=0.001
+    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
     criterion = nn.NLLLoss(reduction='none')
 
     max_length = max(maxTextLen, maxSummaryLen)
