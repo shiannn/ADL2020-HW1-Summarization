@@ -14,12 +14,11 @@ import matplotlib.pyplot as plt
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 SOS_token = 1
 EOS_token = 2
-BATCH_SIZE = 32
+BATCH_SIZE = 8
 
 def tensor2word(tns, embedding):
     words = [embedding.vocab[a] for a in tns]
-    print(words)
-    #return words
+    return words
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length, embedding):
     input_tensor = torch.t(input_tensor)
@@ -54,6 +53,15 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
         #    decoder_input, decoder_hidden)
         decoder_output, decoder_hidden = decoder(
             decoder_input, decoder_hidden)
+        #print('decoder_output')
+        #print(decoder_output)
+        #print('decoder_output.shape', decoder_output.shape)
+        values, indices = torch.topk(decoder_output,k=1,dim=1)
+        #print('indices', indices)
+        words = tensor2word(indices, embedding)
+        #print(words)
+        #print('target_tensor[di]', target_tensor[di])
+        #print('target_tensor[di].shape', target_tensor[di].shape)
         loss = criterion(decoder_output, target_tensor[di])
         TotalLoss += loss[target_tensor[di]>0].mean()
         decoder_input = target_tensor[di]  # Teacher forcing

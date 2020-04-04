@@ -16,6 +16,7 @@ class DecoderRNN(nn.Module):
         self.gru = nn.GRU(hidden_size, hidden_size)
         self.out = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=1)
+        #self.softmax = nn.Softmax(dim=1)
 
     def forward(self, input, hidden):
         # 每次丟好幾個batch的第一個字進來 -1 表示他們都有一個詞向量
