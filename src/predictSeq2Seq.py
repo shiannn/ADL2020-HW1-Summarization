@@ -131,7 +131,7 @@ if __name__ == '__main__':
     loader = Data.DataLoader(
         dataset=testingData,      # torch TensorDataset format
         batch_size=BATCH_SIZE,      # mini batch size
-        shuffle=True,               # 要不要打乱数据 (打乱比较好)
+        shuffle=False,               # 要不要打乱数据 (打乱比较好)
         num_workers=2,              # 多线程来读数据
         collate_fn=testingData.collate_fn
     )
@@ -141,29 +141,43 @@ if __name__ == '__main__':
     with torch.no_grad():
         with open(predictName,'w') as f_predict:
             for cnt,batch in enumerate(loader):
-                #print(batch.keys())
-                X = batch['text'].to(device)
-                idx = batch['id']
-                outputWord = evaluate(encoder1, decoder1, X, max_length)
-                #evaluate(encoder1, decoder1, X, max_length)
-                sent = postprocessing(outputWord, embedding)
-                sentWithoutUnk = [a for a in sent if a != '<unk>']
-                print(idx)
-                print(sentWithoutUnk)
-                joinSentence = sentWithoutUnk[1]
-                for i, word in enumerate(sentWithoutUnk[2:-1]):
-                    if word == "'s" or sentWithoutUnk[i-1]=="\"":
-                        joinSentence += word
-                    else:
-                        joinSentence += ' '
-                        joinSentence += word
-                #joinSentence = ' '.join()
-                print(joinSentence)
-                toWrite = {
-                    "id":idx[0],
-                    "predict":joinSentence
-                }
+                print("{}/{}".format(cnt, len(loader.dataset)))
+                try:
+                    toWrite = {}
+                    #print(batch.keys())
+                    X = batch['text'].to(device)
+                    idx = batch['id']
+                    toWrite["id"] = idx[0]
+                    outputWord = evaluate(encoder1, decoder1, X, max_length)
+                    #evaluate(encoder1, decoder1, X, max_length)
+                    sent = postprocessing(outputWord, embedding)
+                    sentWithoutUnk = [a for a in sent if a != '<unk>']
+                    #print(idx)
+                    #print(sentWithoutUnk)
+                    joinSentence = sentWithoutUnk[1]
+                    for i, word in enumerate(sentWithoutUnk[2:-1]):
+                        if (word == "'s" 
+                        or sentWithoutUnk[i-1]=="\""
+                        or sentWithoutUnk[i-1]=="£"
+                        or word == ","
+                        or word == "." 
+                        or word == "?"
+                        or word == "!"
+                        or (word == "m" and len(word)==1)):
+                            joinSentence += word
+                        else:
+                            joinSentence += ' '
+                            joinSentence += word
+                    #joinSentence = ' '.join()
+                    print(joinSentence)
+                    toWrite["predict"] = joinSentence
+                except KeyboardInterrupt:
+                    print('Interrupted')
+                    exit(0)
+                except:
+                    toWrite = {
+                        "id":idx[0],
+                        "predict":""
+                    }
                 json.dump(toWrite, f_predict)
                 f_predict.write("\n")
-                if cnt == 10:
-                    break
