@@ -19,8 +19,8 @@ class AttnEncoderRNN(nn.Module):
     def forward(self, input, hidden):
         # 此 view 為 view(seq字數(pad到多少), batch_Size(32), feature數(glove 300維))
         # 每次丟好幾個batch的第一個字進來 -1 表示他們都有一個詞向量
-        embedded = self.embedding(input).view(1, self.batch_Size, -1)
-        #embedded = self.embedding(input)
+        #embedded = self.embedding(input).view(1, self.batch_Size, -1)
+        embedded = self.embedding(input)
         #print('input.shape', input.shape)
         #embedded = self.embedding(input)
         #embedded = self.embedding(input)

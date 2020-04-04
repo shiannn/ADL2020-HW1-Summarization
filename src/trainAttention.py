@@ -34,11 +34,12 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     target_length = target_tensor.size(0)
 
     ### for the longest sentence
-    encoder_outputs = torch.zeros(max_length, BATCH_SIZE, encoder.hidden_size, device=device)
+    #encoder_outputs = torch.zeros(max_length, BATCH_SIZE, encoder.hidden_size, device=device)
 
     TotalLoss = 0
 
     # input_tensor (seq_len, batch_size)
+    """
     for ei in range(input_length):
         encoder_output, encoder_hidden = encoder(
             input_tensor[ei], encoder_hidden)
@@ -47,7 +48,14 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     """
     encoder_output, encoder_hidden = encoder(
         input_tensor, encoder_hidden)
-    """
+    #print('encoder_output.shape', encoder_output.shape)
+    #print('encoder_outputs.shape', encoder_outputs.shape)
+    if max_length-encoder_output.shape[0] > 0:
+        ZERO = torch.zeros(max_length-encoder_output.shape[0], BATCH_SIZE, hidden_size).to(device)
+        encoder_outputs = torch.cat((encoder_output, ZERO),0)
+    else:
+        encoder_outputs = encoder_output
+
     ### encoder_outputs (maxLen, batch, hidden_size)
 
     #decoder_input = torch.tensor([[SOS_token]]* BATCH_SIZE, device=device)
