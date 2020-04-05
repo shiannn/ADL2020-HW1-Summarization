@@ -6,7 +6,8 @@ import torch.utils.data as Data
 import torch
 from torch import optim
 import torch.nn as nn
-from seq2seq.AttentionDecoder import AttnDecoderRNN
+#from seq2seq.AttentionDecoder import AttnDecoderRNN
+from attention.AttentionDecoderCat import AttnDecoderRNN
 from seq2seq.AttentionEncoder import AttnEncoderRNN, hidden_size
 import pickle
 

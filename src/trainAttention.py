@@ -6,8 +6,9 @@ from torch import optim
 import torch.nn as nn
 import pickle
 import json
-from seq2seq.AttentionDecoder import AttnDecoderRNN
-from seq2seq.AttentionEncoder import AttnEncoderRNN, hidden_size
+#from seq2seq.AttentionDecoder import AttnDecoderRNN
+from attention.AttentionDecoderCat import AttnDecoderRNN
+from attention.AttentionEncoder import AttnEncoderRNN, hidden_size
 import random
 import matplotlib.pyplot as plt
 
@@ -77,7 +78,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
         values, indices = torch.topk(decoder_output,k=1,dim=1)
         #print('indices', indices)
         words = tensor2word(indices, embedding)
-        print(words)
+        #print(words)
         #print('target_tensor[di]', target_tensor[di])
         #print('target_tensor[di].shape', target_tensor[di].shape)
         loss = criterion(decoder_output, target_tensor[di])
@@ -140,13 +141,16 @@ if __name__ == '__main__':
     
     maxTextLen = config.get('max_text_len')
     maxSummaryLen = config.get('max_summary_len')
-    print(maxTextLen, maxSummaryLen)
+    #print(maxTextLen, maxSummaryLen)
     maxLength = max(maxTextLen, maxSummaryLen)
 
     encoder = AttnEncoderRNN(len(embedding.vocab), hidden_size, embedding.vectors, BATCH_SIZE).to(device)
     #decoder = DecoderRNN(hidden_size, len(embedding.vocab), embedding.vectors, BATCH_SIZE).to(device)
     decoder = AttnDecoderRNN(hidden_size, len(embedding.vocab), embedding.vectors, BATCH_SIZE, maxLength, dropout_p=0.1).to(device)
 
+    print('decoder',decoder)
+    print('encoder',encoder)
+    exit(0)
     loader = Data.DataLoader(
         dataset=trainingData,      # torch TensorDataset format
         batch_size=BATCH_SIZE,      # mini batch size
