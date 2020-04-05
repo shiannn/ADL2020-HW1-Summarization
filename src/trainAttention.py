@@ -7,7 +7,8 @@ import torch.nn as nn
 import pickle
 import json
 #from seq2seq.AttentionDecoder import AttnDecoderRNN
-from attention.AttentionDecoderCat import AttnDecoderRNN
+#from attention.AttentionDecoderCat import AttnDecoderRNN
+from attention.AttentionDecoderCat2 import AttnDecoderRNN
 from attention.AttentionEncoder import AttnEncoderRNN, hidden_size
 import random
 import matplotlib.pyplot as plt
@@ -148,9 +149,6 @@ if __name__ == '__main__':
     #decoder = DecoderRNN(hidden_size, len(embedding.vocab), embedding.vectors, BATCH_SIZE).to(device)
     decoder = AttnDecoderRNN(hidden_size, len(embedding.vocab), embedding.vectors, BATCH_SIZE, maxLength, dropout_p=0.1).to(device)
 
-    print('decoder',decoder)
-    print('encoder',encoder)
-    exit(0)
     loader = Data.DataLoader(
         dataset=trainingData,      # torch TensorDataset format
         batch_size=BATCH_SIZE,      # mini batch size
