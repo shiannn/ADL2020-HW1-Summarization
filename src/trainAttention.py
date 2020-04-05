@@ -10,6 +10,7 @@ import json
 #from attention.AttentionDecoderCat import AttnDecoderRNN
 from attention.AttentionDecoderCat2 import AttnDecoderRNN
 from attention.AttentionEncoder import AttnEncoderRNN, hidden_size
+#from attention.AttentionEncoderBi import AttnEncoderRNN, hidden_size
 import random
 import matplotlib.pyplot as plt
 
@@ -59,6 +60,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
         encoder_outputs = encoder_output
 
     ### encoder_outputs (maxLen, batch, hidden_size)
+    ### Bidirection encoder_outputs (maxLen, batch, Bidirection*hidden_size)
 
     #decoder_input = torch.tensor([[SOS_token]]* BATCH_SIZE, device=device)
     decoder_input = torch.tensor([SOS_token]* BATCH_SIZE, device=device)

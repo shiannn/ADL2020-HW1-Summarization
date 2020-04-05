@@ -10,6 +10,7 @@ import torch.nn as nn
 #from attention.AttentionDecoderCat import AttnDecoderRNN
 from attention.AttentionDecoderCat2 import AttnDecoderRNN
 from attention.AttentionEncoder import AttnEncoderRNN, hidden_size
+#from attention.AttentionEncoderBi import AttnEncoderRNN, hidden_size
 import pickle
 
 BATCH_SIZE = 1
