@@ -46,7 +46,7 @@ class AttnDecoderRNN(nn.Module):
 
         ### embedded (seq_len, batch_size, feature)
         ### attn_applied (batch_size, 1, hidden_size)
-        output = torch.cat((embedded[0], attn_applied.squeeze()), 1)
+        output = torch.cat((embedded[0], attn_applied.squeeze(1)), 1)
         #print('output.shape', output.shape)
         ### out (batch_size, (feature+hidden_size))
 

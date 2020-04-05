@@ -77,7 +77,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
         values, indices = torch.topk(decoder_output,k=1,dim=1)
         #print('indices', indices)
         words = tensor2word(indices, embedding)
-        #print(words)
+        print(words)
         #print('target_tensor[di]', target_tensor[di])
         #print('target_tensor[di].shape', target_tensor[di].shape)
         loss = criterion(decoder_output, target_tensor[di])
