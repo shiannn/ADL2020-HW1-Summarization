@@ -8,9 +8,10 @@ import pickle
 import json
 #from seq2seq.AttentionDecoder import AttnDecoderRNN
 #from attention.AttentionDecoderCat import AttnDecoderRNN
-from attention.AttentionDecoderCat2 import AttnDecoderRNN
-from attention.AttentionEncoder import AttnEncoderRNN, hidden_size
-#from attention.AttentionEncoderBi import AttnEncoderRNN, hidden_size
+#from attention.AttentionDecoderCat2 import AttnDecoderRNN
+#from attention.AttentionEncoder import AttnEncoderRNN, hidden_size
+from attention.AttentionEncoderBi import AttnEncoderRNN, hidden_size, directions
+from attention.AttentionDecoderCosBi import AttnDecoderRNN
 import random
 import matplotlib.pyplot as plt
 
@@ -54,7 +55,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     #print('encoder_output.shape', encoder_output.shape)
     #print('encoder_outputs.shape', encoder_outputs.shape)
     if max_length-encoder_output.shape[0] > 0:
-        ZERO = torch.zeros(max_length-encoder_output.shape[0], BATCH_SIZE, hidden_size).to(device)
+        ZERO = torch.zeros(max_length-encoder_output.shape[0], BATCH_SIZE, directions*hidden_size).to(device)
         encoder_outputs = torch.cat((encoder_output, ZERO),0)
     else:
         encoder_outputs = encoder_output
@@ -183,6 +184,6 @@ if __name__ == '__main__':
         tempError = []
 
         plt.plot(epochError)
-        plt.savefig('figplot_attention/'+'1'+'-'+'1'+'.png')    
-        torch.save(encoder.state_dict(), 'checkpoint_attention/'+'encoder'+str(epoch)+'.pt')
-        torch.save(decoder.state_dict(), 'checkpoint_attention/'+'decoder'+str(epoch)+'.pt')
+        plt.savefig('figplot_attentionBi/'+'1'+'-'+'1'+'.png')    
+        torch.save(encoder.state_dict(), 'checkpoint_attentionBi/'+'encoder'+str(epoch)+'.pt')
+        torch.save(decoder.state_dict(), 'checkpoint_attentionBi/'+'decoder'+str(epoch)+'.pt')
