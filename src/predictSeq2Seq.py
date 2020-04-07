@@ -10,7 +10,7 @@ from seq2seq.DecoderRNN import DecoderRNN
 from seq2seq.EncoderRNN import EncoderRNN, hidden_size
 import pickle
 
-BATCH_SIZE = 1
+BATCH_SIZE = 20
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 SOS_token = 1
 EOS_token = 2
@@ -33,12 +33,20 @@ def evaluate(encoder, decoder, input_tensor, max_length):
     input_tensor = torch.t(input_tensor)
     #print(input_tensor)
     input_length = input_tensor.size()[0]
+    batchSize = input_tensor.size()[1]
+    
     encoder_hidden = encoder.initHidden()
 
     encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
     print('input_length', input_length)
     encoder_output, encoder_hidden = encoder(
         input_tensor, encoder_hidden)
+    
+    if max_length-encoder_output.shape[0] > 0:
+        ZERO = torch.zeros(max_length-encoder_output.shape[0], BATCH_SIZE, hidden_size).to(device)
+        encoder_outputs = torch.cat((encoder_output, ZERO),0)
+    else:
+        encoder_outputs = encoder_output
     """
     for ei in range(input_length):
         #encoder_output, encoder_hidden = encoder(input_tensor[ei],
@@ -53,7 +61,7 @@ def evaluate(encoder, decoder, input_tensor, max_length):
     decoder_hidden = encoder_hidden
     #print('decoder_hidden', decoder_hidden)
 
-    decoded_words = []
+    decoded_words = [[] for i in range(BATCH_SIZE)]
     decoder_attentions = torch.zeros(max_length, max_length)
 
     for di in range(max_length):
@@ -70,21 +78,19 @@ def evaluate(encoder, decoder, input_tensor, max_length):
         values, indices = torch.topk(decoder_output,k=1,dim=1)
         #print('indices', indices)
         words = tensor2word(indices, embedding)
-
-        #print('indices', indices)
         #print('words', words)
         #topv, topi = decoder_output.data.topk(1)
-        if indices[0].item() == EOS_token:
-            decoded_words.append('<EOS>')
-            break
-        else:
-            #decoded_words.append(output_lang.index2word[topi.item()])
-            decoded_words.append(indices[0].item())
+        for j in range(BATCH_SIZE):
+            if indices[j].item() == EOS_token:
+                decoded_words[j].append('<EOS>')
+            else:
+                #decoded_words.append(output_lang.index2word[topi.item()])
+                decoded_words[j].append(indices[j].item())
 
-        #decoder_input = topi.squeeze().detach()
-        decoder_input = indices[0]
-
+        decoder_input = indices.squeeze().detach()
+        #decoder_input = indices[0]
     #return decoded_words, decoder_attentions[:di + 1]
+    #print('decoder_words', decoded_words)
     return decoded_words
     
 
@@ -141,43 +147,71 @@ if __name__ == '__main__':
     with torch.no_grad():
         with open(predictName,'w') as f_predict:
             for cnt,batch in enumerate(loader):
-                print("{}/{}".format(cnt, len(loader.dataset)))
-                try:
-                    toWrite = {}
-                    #print(batch.keys())
-                    X = batch['text'].to(device)
-                    idx = batch['id']
-                    toWrite["id"] = idx[0]
-                    outputWord = evaluate(encoder1, decoder1, X, max_length)
-                    #evaluate(encoder1, decoder1, X, max_length)
-                    sent = postprocessing(outputWord, embedding)
-                    sentWithoutUnk = [a for a in sent if a != '<unk>']
-                    #print(idx)
-                    #print(sentWithoutUnk)
-                    joinSentence = sentWithoutUnk[1]
-                    for i, word in enumerate(sentWithoutUnk[2:-1]):
-                        if (word == "'s" 
-                        or sentWithoutUnk[i-1]=="\""
-                        or sentWithoutUnk[i-1]=="£"
-                        or word == ","
-                        or word == "." 
-                        or word == "?"
-                        or word == "!"
-                        or (word == "m" and len(word)==1)):
-                            joinSentence += word
-                        else:
-                            joinSentence += ' '
-                            joinSentence += word
-                    #joinSentence = ' '.join()
-                    print(joinSentence)
-                    toWrite["predict"] = joinSentence
-                except KeyboardInterrupt:
-                    print('Interrupted')
-                    exit(0)
-                except:
-                    toWrite = {
-                        "id":idx[0],
-                        "predict":""
-                    }
-                json.dump(toWrite, f_predict)
-                f_predict.write("\n")
+                print("{}/{}".format((cnt+1)*BATCH_SIZE, len(loader.dataset)))
+                toWrite = {}
+                #print(batch.keys())
+                X = batch['text'].to(device)
+                idx = batch['id']
+                print('idx',idx)
+                #print('X',X)
+                outputWords = evaluate(encoder1, decoder1, X, max_length)
+                for dataId, outputWord in enumerate(outputWords):
+                    toWrite["id"] = idx[dataId]
+                    try:
+                        #evaluate(encoder1, decoder1, X, max_length)
+                        sent = postprocessing(outputWord, embedding)
+                        sentWithoutUnk = []
+                        for a in sent:
+                            if a=='</s>':
+                                sentWithoutUnk.append(a)
+                                break
+                            elif a == '<unk>':
+                                continue
+                            else:
+                                sentWithoutUnk.append(a)
+                        #print(idx)
+                        #print(sentWithoutUnk)
+                        joinSentence = sentWithoutUnk[1]
+                        quote = 0
+                        for i, word in enumerate(sentWithoutUnk[2:], 2):
+                            if word == '</s>':
+                                break
+                            word = word.strip()
+                            if (word == "'s" 
+                            or sentWithoutUnk[i-1]=="\u00a3"
+                            or sentWithoutUnk[i-1]=="-"
+                            or sentWithoutUnk[i-1][-1]=="-"
+                            or sentWithoutUnk[i-1]=="("
+                            or (sentWithoutUnk[i-1]=='"' and quote==1)
+                            or word == ")"
+                            or word == "-"
+                            or word == ","
+                            or word == "."
+                            or word == ":" 
+                            or word == "?"
+                            or word == "!"
+                            or word == "$"
+                            or word == "'"
+                            or (word == "m" and len(word)==1)):
+                                joinSentence += word
+                            elif(word == '"'):
+                                if quote == 0:
+                                    joinSentence += ' '
+                                    joinSentence += word
+                                    quote = 1
+                                elif quote == 1:
+                                    joinSentence += word
+                                    quote = 0
+                            else:
+                                joinSentence += ' '
+                                joinSentence += word
+                        #joinSentence = ' '.join()
+                        print(joinSentence)
+                        toWrite["predict"] = joinSentence
+                    except KeyboardInterrupt:
+                        print('Interrupted')
+                        exit(0)
+                    except:
+                        toWrite["predict"] = ""
+                    json.dump(toWrite, f_predict)
+                    f_predict.write("\n")
