@@ -42,6 +42,7 @@ def postprocessing(tag_scores,sent_range):
     
     maxRatio = -1
     predict_sent_idx = -1
+    ret = []
     for i in range(len(sent_range)):
         #the i'th sentence
         st = sent_range[i][0]
@@ -52,9 +53,12 @@ def postprocessing(tag_scores,sent_range):
         #print('wordselected',wordselected)
         ratio = wordselected / wordInSent
         if ratio > maxRatio:
-            predict_sent_idx = i
+            #predict_sent_idx = i
+            ret = [i]
             maxRatio = ratio
-    return [predict_sent_idx]
+        elif ratio == maxRatio:
+            ret.append(i)
+    return ret
 
 if __name__ == '__main__':
     if(len(sys.argv)!=5):
@@ -95,34 +99,6 @@ if __name__ == '__main__':
     with torch.no_grad():
         with open(predictName,'w') as f_predict:
             for cnt,batch in enumerate(loader_valid):
-                """
-                try:
-                    X = batch['text']
-                    Y = batch['label']
-                    sentRange = batch['sent_range']
-                    Id = batch['id'][0]
-                    #print(X,Y,Id)
-                    X = X.to(device, dtype=torch.long)
-                    print(X.shape)
-                    tag_scores = model(X)
-                    ### tag_scores (1,296,1)
-                    print(tag_scores)
-                    print(sentRange)
-                    predict_sent_idx = postprocessing(tag_scores, sentRange)
-                    print('predict_sent_idx {}/{}'.format(cnt, len(loader_valid.dataset)), predict_sent_idx)
-                    toWrite = {}
-                    toWrite["id"] = Id
-                    toWrite["predict_sentence_index"] = predict_sent_idx
-                except KeyboardInterrupt:
-                    print('Interrupted')
-                    exit(0)
-                except:
-                    toWrite["id"] = Id
-                    toWrite["predict_sentence_index"] = []
-                json.dump(toWrite, f_predict)
-                f_predict.write("\n")
-                
-                """
                 X = batch['text']
                 Y = batch['label']
                 sentRange = batch['sent_range']

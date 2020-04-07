@@ -97,6 +97,7 @@ if __name__ == '__main__':
     trainingData = SeqTaggingDataset(trainingData)
     validData = SeqTaggingDataset(validData)
     BATCH_SIZE=32
+    BATCH_Valid = 20
     EPOCH = 20
     stEPOCH = 1
     
@@ -109,7 +110,7 @@ if __name__ == '__main__':
     )
     loader_valid = Data.DataLoader(
         dataset=validData,      # torch TensorDataset format
-        batch_size=1,      # mini batch size
+        batch_size=BATCH_Valid,      # mini batch size
         shuffle=False,               # 要不要打乱数据 (打乱比较好)
         collate_fn=validData.collate_fn
     )
@@ -184,29 +185,37 @@ if __name__ == '__main__':
         with torch.no_grad():
             predicts = {}
             for cnt,batch in enumerate(loader_valid):
-                try:
-                    X = batch['text']
-                    Y = batch['label']
-                    sentRange = batch['sent_range']
-                    Id = batch['id'][0]
-                    #print(X,Y,Id)
-                    X = X.to(device, dtype=torch.long)
-                    #print(X.shape)
-                    tag_scores = model(X)
-                    #print(tag_scores)
-                    predict_sent_idx = postprocessing(tag_scores, sentRange)
-                    print('predict_sent_idx {}/{}'.format(cnt, len(loader_valid.dataset)), predict_sent_idx)
+                X = batch['text']
+                Y = batch['label']
+                sentRange = batch['sent_range']
+                Id = batch['id']
+                #print('Id',Id)
+                #print(X,Y,Id)
+                X = X.to(device, dtype=torch.long)
+                tag_scores = model(X)
+                #print(tag_scores.shape)
+                print('len(sentRange)',len(sentRange))
+                #print(tag_scores)
+                ### tag_score (3, 296, 1)
+                #tag_scores = torch.squeeze(tag_scores, 2)
+                #exit(0)
+                for i in range(BATCH_Valid):
                     toWrite = {}
-                    toWrite["id"] = Id
-                    toWrite["predict_sentence_index"] = predict_sent_idx
-                except KeyboardInterrupt:
-                    print('Interrupted')
-                    exit(0)
-                except:
-                    toWrite["id"] = Id
-                    toWrite["predict_sentence_index"] = []
-                predicts[Id] = toWrite
-                print(toWrite)
+                    predict_sent_idx = postprocessing(tag_scores[i], sentRange[i])
+                    #print('predict_sent_idx', predict_sent_idx)
+                    try:
+                        toWrite["predict_sentence_index"] = predict_sent_idx
+                    except KeyboardInterrupt:
+                        print('Interrupted')
+                        exit(0)
+                    except:
+                        toWrite["predict_sentence_index"] = []
+                    #json.dump(toWrite, f_predict)
+                    #f_predict.write("\n")
+                    toWrite["id"] = Id[i]
+                    predicts[Id[i]] = toWrite
+                    
+                print('predict_sent_idx {}/{}'.format((cnt+1)*BATCH_Valid, len(loader_valid.dataset)), predict_sent_idx)
         [m1,s1,m2,s2,ml,sl] = validError(predicts, answers)
         M1.append(m1)
         M2.append(m2)
