@@ -6,7 +6,7 @@ from attention.AttentionDecoderCosBi import AttnDecoderRNN
 import pickle
 from dataset import Seq2SeqDataset
 import torch.utils.data as Data
-from scipy.special import softmax
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
@@ -14,6 +14,16 @@ SOS_token = 1
 EOS_token = 2
 BATCH_SIZE = 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def softmax(z):
+    assert len(z.shape) == 2
+    s = np.max(z, axis=1)
+    s = s[:, np.newaxis] # necessary step to do broadcasting
+    e_x = np.exp(z - s)
+    div = np.sum(e_x, axis=1)
+    div = div[:, np.newaxis] # dito
+    return e_x / div
 
 def tensor2word(tns, embedding):
     words = [embedding.vocab[a] for a in tns]
@@ -190,7 +200,8 @@ if __name__ == '__main__':
                 #print(visMatrix.shape)
                 #print(type(visMatrix))
                 todraw = visMatrix[:len(outputWord),:len(inputWord)]
-                todraw = softmax(todraw, axis=1)
+                todraw = softmax(todraw)
+
                 #print(todraw)
                 #print(todraw.shape)
                 cax = ax.matshow(todraw, cmap='bone')
