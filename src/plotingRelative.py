@@ -16,6 +16,7 @@ from torch.utils.data import Dataset, DataLoader
 import torch.utils.data as Data
 from torch.nn import Sigmoid
 from dataset import SeqTaggingDataset
+import matplotlib.pyplot as plt
 
 if torch.cuda.is_available():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -60,14 +61,13 @@ def postprocessing(tag_scores,sent_range):
     return [predict_sent_idx]
 
 if __name__ == '__main__':
-    if(len(sys.argv)!=5):
-        print('usage: python3 predict.py model.pt embedding.pkl TestingData.pkl predict.jsonl')
+    if(len(sys.argv)!=4):
+        print('usage: python3 plotingRelative.py model.pt embedding.pkl TestingData.pkl')
         exit(0)
     
     modelName = sys.argv[1]
     embeddingName = sys.argv[2]
     testDataName = sys.argv[3]
-    predictName = sys.argv[4]
     # sys.argv[1] embedding (TrainingData.npy)
     # sys.argv[2] TestX (TestingData.npy)
     # sys.argv[3] TestY predict result (predict.jsonl)
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     testingData = SeqTaggingDataset(testingData)
 
     BATCH_SIZE = 1
-    loader_valid = Data.DataLoader(
+    loader = Data.DataLoader(
         dataset=testingData,      # torch TensorDataset format
         batch_size=BATCH_SIZE,      # mini batch size
         shuffle=False,               # 要不要打乱数据 (打乱比较好)
@@ -95,57 +95,30 @@ if __name__ == '__main__':
     model = model.to(device)
     model.eval()
 
+    histList = []
     with torch.no_grad():
-        with open(predictName,'w') as f_predict:
-            for cnt,batch in enumerate(loader_valid):
-                try:
-                    X = batch['text']
-                    Y = batch['label']
-                    sentRange = batch['sent_range']
-                    Id = batch['id'][0]
-                    #print(X,Y,Id)
-                    X = X.to(device, dtype=torch.long)
-                    #print(X.shape)
-                    tag_scores = model(X)
-                    #print(tag_scores)
-                    predict_sent_idx = postprocessing(tag_scores, sentRange)
-                    print('predict_sent_idx {}/{}'.format(cnt, len(loader_valid.dataset)), predict_sent_idx)
-                    toWrite = {}
-                    toWrite["id"] = Id
-                    toWrite["predict_sentence_index"] = predict_sent_idx
-                except KeyboardInterrupt:
-                    print('Interrupted')
-                    exit(0)
-                except:
-                    toWrite["id"] = Id
-                    toWrite["predict_sentence_index"] = []
-                json.dump(toWrite, f_predict)
-                f_predict.write("\n")
-            """
-            for cnt,batch in enumerate(loader):
+        for cnt,batch in enumerate(loader):
+            try:
+                print('counting {}/{}'.format(cnt, len(loader.dataset)))
+                #print(batch.keys())
                 X = batch['text']
                 Y = batch['label']
                 sentRange = batch['sent_range']
-                Id = batch['id']
-                #print('Id',Id)
-                #print(X,Y,Id)
+                Id = batch['id'][0]
+                numSentence = len(sentRange[0])
                 X = X.to(device, dtype=torch.long)
                 #print(X.shape)
                 tag_scores = model(X)
                 #print(tag_scores)
-                for i in range(BATCH_SIZE):
-                    toWrite = {}
-                    try:
-                        predict_sent_idx = postprocessing(tag_scores[i], sentRange)
-                        toWrite["predict_sentence_index"] = predict_sent_idx
-                    except KeyboardInterrupt:
-                        print('Interrupted')
-                        exit(0)
-                    except:
-                        toWrite["predict_sentence_index"] = []
-                    toWrite["id"] = Id[i]
-                    json.dump(toWrite, f_predict)
-                    f_predict.write("\n")
-                    print('predict_sent_idx', predict_sent_idx)
-                print('predict_sent_idx {}/{}'.format((cnt+1)*BATCH_SIZE, len(loader.dataset)), predict_sent_idx)
-            """
+                predict_sent_idx = postprocessing(tag_scores, sentRange)
+                print('predict_sent_idx', predict_sent_idx)
+                
+                ratio = predict_sent_idx[0] / numSentence
+                histList.append(ratio)
+            except KeyboardInterrupt:
+                print('Interrupted')
+                exit(0)
+            except:
+                print('error')
+    plt.hist(histList)
+    plt.savefig("hist.png")

@@ -110,7 +110,7 @@ if __name__ == '__main__':
     loader_valid = Data.DataLoader(
         dataset=validData,      # torch TensorDataset format
         batch_size=1,      # mini batch size
-        shuffle=True,               # 要不要打乱数据 (打乱比较好)
+        shuffle=False,               # 要不要打乱数据 (打乱比较好)
         collate_fn=validData.collate_fn
     )
 
@@ -175,36 +175,38 @@ if __name__ == '__main__':
                 #loss = loss.view(-1,1)[targets.view(-1,1)>0].mean()
                 trainingLoss.append(loss)
 
-                print('epoch:{}/{} {}/{} loss:{}'.format(epoch, EPOCH, i, len(loader.dataset), loss))
+                print('epoch:{}/{} {}/{} loss:{}'.format(epoch, EPOCH, (i+1)*BATCH_SIZE, len(loader.dataset), loss))
                 loss.backward()
                 optimizer.step()
             except KeyboardInterrupt:
                 print('Interrupted')
                 exit(0)
-        predicts = {}
-        for cnt,batch in enumerate(loader_valid):
-            try:
-                X = batch['text']
-                Y = batch['label']
-                sentRange = batch['sent_range']
-                Id = batch['id'][0]
-                #print(X,Y,Id)
-                X = X.to(device, dtype=torch.long)
-                #print(X.shape)
-                tag_scores = model(X)
-                #print(tag_scores)
-                predict_sent_idx = postprocessing(tag_scores, sentRange)
-                print('predict_sent_idx {}/{}'.format(cnt, len(loader_valid.dataset)), predict_sent_idx)
-                toWrite = {}
-                toWrite["id"] = Id
-                toWrite["predict_sentence_index"] = predict_sent_idx
-            except KeyboardInterrupt:
-                print('Interrupted')
-                exit(0)
-            except:
-                toWrite["id"] = Id
-                toWrite["predict_sentence_index"] = []
-            predicts[Id] = toWrite
+        with torch.no_grad():
+            predicts = {}
+            for cnt,batch in enumerate(loader_valid):
+                try:
+                    X = batch['text']
+                    Y = batch['label']
+                    sentRange = batch['sent_range']
+                    Id = batch['id'][0]
+                    #print(X,Y,Id)
+                    X = X.to(device, dtype=torch.long)
+                    #print(X.shape)
+                    tag_scores = model(X)
+                    #print(tag_scores)
+                    predict_sent_idx = postprocessing(tag_scores, sentRange)
+                    print('predict_sent_idx {}/{}'.format(cnt, len(loader_valid.dataset)), predict_sent_idx)
+                    toWrite = {}
+                    toWrite["id"] = Id
+                    toWrite["predict_sentence_index"] = predict_sent_idx
+                except KeyboardInterrupt:
+                    print('Interrupted')
+                    exit(0)
+                except:
+                    toWrite["id"] = Id
+                    toWrite["predict_sentence_index"] = []
+                predicts[Id] = toWrite
+                print(toWrite)
         [m1,s1,m2,s2,ml,sl] = validError(predicts, answers)
         M1.append(m1)
         M2.append(m2)
