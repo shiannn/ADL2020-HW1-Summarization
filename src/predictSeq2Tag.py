@@ -20,15 +20,12 @@ from dataset import SeqTaggingDataset
 if torch.cuda.is_available():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-TARGETONE = torch.tensor([0,1], dtype=torch.float64).to(device)
-TARGETZERO = torch.tensor([1,0], dtype=torch.float64).to(device)
-
 def prepare_sequence(seq, to_ix):
     idxs = [to_ix[w] if w in to_ix else 0 for w in seq]
     return torch.tensor(idxs, dtype=torch.long)
 
 def postprocessing(tag_scores,sent_range):
-    tag_scores = tag_scores.squeeze()
+    #tag_scores = tag_scores.squeeze()
     #label = label.squeeze()
     #print(tag_scores)
     #print(label)
@@ -45,10 +42,10 @@ def postprocessing(tag_scores,sent_range):
     
     maxRatio = -1
     predict_sent_idx = -1
-    for i in range(len(sent_range[0])):
+    for i in range(len(sent_range)):
         #the i'th sentence
-        st = sent_range[0][i][0]
-        ed = sent_range[0][i][1]
+        st = sent_range[i][0]
+        ed = sent_range[i][1]
         wordInSent = ed - st
         #print('wordInSent',wordInSent)
         wordselected = (predictLabel[st:ed]==1).sum()
@@ -78,7 +75,7 @@ if __name__ == '__main__':
 
     testingData = SeqTaggingDataset(testingData)
 
-    BATCH_SIZE = 1
+    BATCH_SIZE = 20
     loader_valid = Data.DataLoader(
         dataset=testingData,      # torch TensorDataset format
         batch_size=BATCH_SIZE,      # mini batch size
@@ -98,6 +95,7 @@ if __name__ == '__main__':
     with torch.no_grad():
         with open(predictName,'w') as f_predict:
             for cnt,batch in enumerate(loader_valid):
+                """
                 try:
                     X = batch['text']
                     Y = batch['label']
@@ -105,9 +103,11 @@ if __name__ == '__main__':
                     Id = batch['id'][0]
                     #print(X,Y,Id)
                     X = X.to(device, dtype=torch.long)
-                    #print(X.shape)
+                    print(X.shape)
                     tag_scores = model(X)
-                    #print(tag_scores)
+                    ### tag_scores (1,296,1)
+                    print(tag_scores)
+                    print(sentRange)
                     predict_sent_idx = postprocessing(tag_scores, sentRange)
                     print('predict_sent_idx {}/{}'.format(cnt, len(loader_valid.dataset)), predict_sent_idx)
                     toWrite = {}
@@ -121,8 +121,8 @@ if __name__ == '__main__':
                     toWrite["predict_sentence_index"] = []
                 json.dump(toWrite, f_predict)
                 f_predict.write("\n")
-            """
-            for cnt,batch in enumerate(loader):
+                
+                """
                 X = batch['text']
                 Y = batch['label']
                 sentRange = batch['sent_range']
@@ -130,13 +130,18 @@ if __name__ == '__main__':
                 #print('Id',Id)
                 #print(X,Y,Id)
                 X = X.to(device, dtype=torch.long)
-                #print(X.shape)
                 tag_scores = model(X)
+                #print(tag_scores.shape)
+                #print(sentRange)
                 #print(tag_scores)
+                ### tag_score (3, 296, 1)
+                #tag_scores = torch.squeeze(tag_scores, 2)
+                #exit(0)
                 for i in range(BATCH_SIZE):
                     toWrite = {}
+                    predict_sent_idx = postprocessing(tag_scores[i], sentRange[i])
+                    #print('predict_sent_idx', predict_sent_idx)
                     try:
-                        predict_sent_idx = postprocessing(tag_scores[i], sentRange)
                         toWrite["predict_sentence_index"] = predict_sent_idx
                     except KeyboardInterrupt:
                         print('Interrupted')
@@ -146,6 +151,5 @@ if __name__ == '__main__':
                     toWrite["id"] = Id[i]
                     json.dump(toWrite, f_predict)
                     f_predict.write("\n")
-                    print('predict_sent_idx', predict_sent_idx)
-                print('predict_sent_idx {}/{}'.format((cnt+1)*BATCH_SIZE, len(loader.dataset)), predict_sent_idx)
-            """
+                    
+                print('predict_sent_idx {}/{}'.format((cnt+1)*BATCH_SIZE, len(loader_valid.dataset)), predict_sent_idx)
