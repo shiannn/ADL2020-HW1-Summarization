@@ -207,7 +207,7 @@ if __name__ == '__main__':
                 cax = ax.matshow(todraw, cmap='bone')
                 fig.colorbar(cax)
 
-                ax.set_xticklabels([''] + inputWord + ['<EOS>'], rotation=90)
+                ax.set_xticklabels([''] + inputWord + ['<\s>'], rotation=90)
                 ax.set_yticklabels([''] + outputWord)
 
                 # Show label at every tick
