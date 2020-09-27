@@ -1,5 +1,5 @@
 torch==1.4.0
-tensorflow==2.1.0
+tensorflow==2.1.2
 rouge_score==0.0.3
 pytorch-lightning==0.7.1
 pytorch-ignite==0.3.0
